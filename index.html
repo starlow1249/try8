@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <title>כניסה למצגות</title>
+</head>
+<body dir="rtl">
+  <h2>הזן סיסמה ושם פרשה:</h2>
+  <input type="password" id="passwordInput" placeholder="סיסמה" />
+  <input type="text" id="topicInput" placeholder="פרשה" />
+  <button onclick="checkAccess()">הצג קישורים</button>
+
+  <div id="result"></div>
+
+  <script>
+    const apiKey = "AIzaSyClmkLxcxXdKkrmGVY2fjTsVgf31RcMS_4";
+    const sheetId = "1YWCM1uctEsK-504WkMSdsBm5y56GBwRB3Hy_r1OYXuI";
+
+    async function checkAccess() {
+      const inputPassword = document.getElementById("passwordInput").value.trim();
+      const inputTopic = document.getElementById("topicInput").value.trim().toLowerCase();
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "";
+
+      try {
+        // שלב 1: קבלת הסיסמה מ-A2
+        const passwordRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/גיליון1!A2?key=${apiKey}`);
+        const passwordData = await passwordRes.json();
+        const realPassword = passwordData?.values?.[0]?.[0];
+
+        if (!realPassword) {
+          resultDiv.innerHTML = "<p style='color:red;'>לא נמצאה סיסמה בגיליון</p>";
+          return;
+        }
+
+        if (inputPassword !== realPassword) {
+          resultDiv.innerHTML = "<p style='color:red;'>סיסמה שגויה</p>";
+          return;
+        }
+
+        // שלב 2: שליפת כלל הנתונים
+        const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/גיליון1?key=${apiKey}`);
+        const data = await dataRes.json();
+
+        const rows = data.values;
+        if (!rows || rows.length < 2) {
+          resultDiv.innerHTML = "<p style='color:red;'>לא נמצאו נתונים</p>";
+          return;
+        }
+
+        const headers = rows[0];
+        const topicIndex = headers.indexOf("שם פרשה");
+        const linkIndex = headers.indexOf("קישור");
+
+        if (topicIndex === -1 || linkIndex === -1) {
+          resultDiv.innerHTML = "<p style='color:red;'>העמודות 'שם פרשה' או 'קישור' לא נמצאו</p>";
+          return;
+        }
+
+        const matches = rows.slice(1).filter(row =>
+          row[topicIndex]?.trim().toLowerCase() === inputTopic
+        );
+
+        if (matches.length === 0) {
+          resultDiv.innerHTML = "<p style='color:red;'>לא נמצאו קישורים לפרשה זו</p>";
+          return;
+        }
+
+        matches.forEach(row => {
+          const link = row[linkIndex];
+          const a = document.createElement("a");
+          a.href = link;
+          a.target = "_blank";
+          a.textContent = link;
+          a.style.display = "block";
+          resultDiv.appendChild(a);
+        });
+
+      } catch (error) {
+        console.error(error);
+        resultDiv.innerHTML = "<p style='color:red;'>אירעה שגיאה בעת הטעינה</p>";
+      }
+    }
+  </script>
+</body>
+</html>
